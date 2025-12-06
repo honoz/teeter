@@ -1,0 +1,413 @@
+package com.htc.android.teeter.game
+
+import android.content.Context
+import android.graphics.*
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.media.AudioAttributes
+import android.media.SoundPool
+import android.os.Vibrator
+import android.util.AttributeSet
+import android.view.MotionEvent
+import android.view.SurfaceHolder
+import android.view.SurfaceView
+import com.htc.android.teeter.R
+import com.htc.android.teeter.models.Hole
+import com.htc.android.teeter.models.Level
+import com.htc.android.teeter.models.Wall
+import kotlin.math.abs
+import kotlin.math.sqrt
+
+class GameView @JvmOverloads constructor(
+    context: Context,
+    attrs: AttributeSet? = null
+) : SurfaceView(context, attrs), SurfaceHolder.Callback, SensorEventListener {
+
+    private var gameThread: GameThread? = null
+    private val paint = Paint().apply {
+        isAntiAlias = true
+        isFilterBitmap = true
+    }
+    
+    // Game state
+    private var level: Level? = null
+    private var ballX = 0f
+    private var ballY = 0f
+    private var ballVelocityX = 0f
+    private var ballVelocityY = 0f
+    private val ballRadius = 12f
+    
+    // Sensors
+    private val sensorManager: SensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+    private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    
+    // Sound & Vibration
+    private val soundPool: SoundPool
+    private var holeSound = 0
+    private var levelCompleteSound = 0
+    private val vibrator: Vibrator = context.getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+    
+    // Bitmaps
+    private var ballBitmap: Bitmap? = null
+    private var holeBitmap: Bitmap? = null
+    private var endBitmap: Bitmap? = null
+    private var wallBitmap: Bitmap? = null
+    private var mazeBitmap: Bitmap? = null
+    private var shadowBitmap: Bitmap? = null
+    
+    // Game callbacks
+    var onLevelComplete: (() -> Unit)? = null
+    var onFallInHole: (() -> Unit)? = null
+    
+    // Scale factor for adapting original coordinates
+    private var scaleX = 1f
+    private var scaleY = 1f
+    private val originalWidth = 800f
+    private val originalHeight = 480f
+    
+    init {
+        holder.addCallback(this)
+        setZOrderOnTop(false)
+        holder.setFormat(PixelFormat.TRANSLUCENT)
+        isFocusable = true
+        
+        // Initialize sound pool
+        val audioAttributes = AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_GAME)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+            .build()
+        soundPool = SoundPool.Builder()
+            .setMaxStreams(5)
+            .setAudioAttributes(audioAttributes)
+            .build()
+            
+        loadResources()
+    }
+    
+    private fun loadResources() {
+        try {
+            val options = BitmapFactory.Options().apply {
+                inScaled = false
+                inDither = false
+                inPreferredConfig = Bitmap.Config.ARGB_8888
+                inPremultiplied = true
+            }
+            ballBitmap = BitmapFactory.decodeResource(resources, R.drawable.ball, options)
+            holeBitmap = BitmapFactory.decodeResource(resources, R.drawable.hole, options)
+            endBitmap = BitmapFactory.decodeResource(resources, R.drawable.end, options)
+            wallBitmap = BitmapFactory.decodeResource(resources, R.drawable.wall, options)
+            mazeBitmap = BitmapFactory.decodeResource(resources, R.drawable.maze, options)
+            shadowBitmap = BitmapFactory.decodeResource(resources, R.drawable.shadow, options)
+            
+            holeSound = soundPool.load(context, R.raw.hole, 1)
+            levelCompleteSound = soundPool.load(context, R.raw.level_complete, 1)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    fun setLevel(newLevel: Level) {
+        level = newLevel
+        resetBall()
+    }
+    
+    private fun resetBall() {
+        level?.let {
+            ballX = it.beginX * scaleX
+            ballY = it.beginY * scaleY
+            ballVelocityX = 0f
+            ballVelocityY = 0f
+        }
+    }
+    
+    fun startSensors() {
+        accelerometer?.let {
+            sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_GAME)
+        }
+    }
+    
+    fun stopSensors() {
+        sensorManager.unregisterListener(this)
+    }
+    
+    override fun surfaceCreated(holder: SurfaceHolder) {
+        gameThread = GameThread(holder)
+        gameThread?.running = true
+        gameThread?.start()
+        startSensors()
+    }
+    
+    override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
+        scaleX = width / originalWidth
+        scaleY = height / originalHeight
+        resetBall()
+    }
+    
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        var retry = true
+        gameThread?.running = false
+        stopSensors()
+        while (retry) {
+            try {
+                gameThread?.join()
+                retry = false
+            } catch (e: InterruptedException) {
+                e.printStackTrace()
+            }
+        }
+    }
+    
+    override fun onSensorChanged(event: SensorEvent) {
+        if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+            // Apply acceleration for landscape orientation
+            val accelX = event.values[1]
+            val accelY = event.values[0]
+            
+            ballVelocityX += accelX * 0.5f
+            ballVelocityY += accelY * 0.5f
+            
+            // Apply friction
+            ballVelocityX *= 0.98f
+            ballVelocityY *= 0.98f
+            
+            // Limit velocity
+            val maxVelocity = 20f
+            if (abs(ballVelocityX) > maxVelocity) ballVelocityX = maxVelocity * ballVelocityX / abs(ballVelocityX)
+            if (abs(ballVelocityY) > maxVelocity) ballVelocityY = maxVelocity * ballVelocityY / abs(ballVelocityY)
+        }
+    }
+    
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+    
+    private fun update() {
+        level ?: return
+        
+        // Update ball position
+        ballX += ballVelocityX
+        ballY += ballVelocityY
+        
+        // Check wall collisions
+        checkWallCollisions()
+        
+        // Check holes
+        if (checkHoleCollisions()) {
+            vibrator.vibrate(300)
+            soundPool.play(holeSound, 1f, 1f, 1, 0, 1f)
+            resetBall()
+            onFallInHole?.invoke()
+            return
+        }
+        
+        // Check goal
+        if (checkGoal()) {
+            soundPool.play(levelCompleteSound, 1f, 1f, 1, 0, 1f)
+            onLevelComplete?.invoke()
+        }
+    }
+    
+    private fun checkWallCollisions() {
+        level?.walls?.forEach { wall ->
+            val left = wall.left * scaleX
+            val top = wall.top * scaleY
+            val right = wall.right * scaleX
+            val bottom = wall.bottom * scaleY
+            
+            // Simple rectangle collision
+            if (ballX + ballRadius > left && ballX - ballRadius < right &&
+                ballY + ballRadius > top && ballY - ballRadius < bottom) {
+                
+                // Determine collision side and adjust
+                val overlapLeft = ballX + ballRadius - left
+                val overlapRight = right - (ballX - ballRadius)
+                val overlapTop = ballY + ballRadius - top
+                val overlapBottom = bottom - (ballY - ballRadius)
+                
+                val minOverlap = minOf(overlapLeft, overlapRight, overlapTop, overlapBottom)
+                
+                when (minOverlap) {
+                    overlapLeft -> {
+                        ballX = left - ballRadius
+                        ballVelocityX = -ballVelocityX * 0.5f
+                    }
+                    overlapRight -> {
+                        ballX = right + ballRadius
+                        ballVelocityX = -ballVelocityX * 0.5f
+                    }
+                    overlapTop -> {
+                        ballY = top - ballRadius
+                        ballVelocityY = -ballVelocityY * 0.5f
+                    }
+                    overlapBottom -> {
+                        ballY = bottom + ballRadius
+                        ballVelocityY = -ballVelocityY * 0.5f
+                    }
+                }
+            }
+        }
+        
+        // Screen boundaries
+        if (ballX - ballRadius < 0) {
+            ballX = ballRadius
+            ballVelocityX = -ballVelocityX * 0.5f
+        }
+        if (ballX + ballRadius > width) {
+            ballX = width - ballRadius
+            ballVelocityX = -ballVelocityX * 0.5f
+        }
+        if (ballY - ballRadius < 0) {
+            ballY = ballRadius
+            ballVelocityY = -ballVelocityY * 0.5f
+        }
+        if (ballY + ballRadius > height) {
+            ballY = height - ballRadius
+            ballVelocityY = -ballVelocityY * 0.5f
+        }
+    }
+    
+    private fun checkHoleCollisions(): Boolean {
+        level?.holes?.forEach { hole ->
+            val holeX = hole.x * scaleX
+            val holeY = hole.y * scaleY
+            val distance = sqrt((ballX - holeX) * (ballX - holeX) + (ballY - holeY) * (ballY - holeY))
+            if (distance < ballRadius + 15f) {
+                return true
+            }
+        }
+        return false
+    }
+    
+    private fun checkGoal(): Boolean {
+        level?.let {
+            val endX = it.endX * scaleX
+            val endY = it.endY * scaleY
+            val distance = sqrt((ballX - endX) * (ballX - endX) + (ballY - endY) * (ballY - endY))
+            return distance < ballRadius + 20f
+        }
+        return false
+    }
+    
+    private fun drawGame(canvas: Canvas) {
+        canvas.drawColor(Color.BLACK)
+        
+        level ?: return
+        
+        // Draw maze background - temporarily disabled to debug
+        mazeBitmap?.let {
+            val scaledBitmap = Bitmap.createScaledBitmap(it, width, height, true)
+            val mazePaint = Paint().apply {
+                isAntiAlias = true
+                isFilterBitmap = true
+            }
+            canvas.drawBitmap(scaledBitmap, 0f, 0f, mazePaint)
+        }
+        
+        // Draw walls
+        val wallPaint = Paint().apply {
+            color = Color.rgb(100, 100, 100)
+            style = Paint.Style.FILL
+        }
+        level?.walls?.forEach { wall ->
+            val left = wall.left * scaleX
+            val top = wall.top * scaleY
+            val right = wall.right * scaleX
+            val bottom = wall.bottom * scaleY
+            canvas.drawRect(left, top, right, bottom, wallPaint)
+        }
+        
+        // Draw holes
+        level?.holes?.forEach { hole ->
+            val holeX = hole.x * scaleX
+            val holeY = hole.y * scaleY
+            holeBitmap?.let {
+                val holePaint = Paint().apply {
+                    isAntiAlias = true
+                    isFilterBitmap = true
+                }
+                canvas.drawBitmap(it, holeX - it.width / 2, holeY - it.height / 2, holePaint)
+            }
+        }
+        
+        // Draw goal
+        level?.let {
+            val endX = it.endX * scaleX
+            val endY = it.endY * scaleY
+            endBitmap?.let { bitmap ->
+                val goalPaint = Paint().apply {
+                    isAntiAlias = true
+                    isFilterBitmap = true
+                }
+                canvas.drawBitmap(bitmap, endX - bitmap.width / 2, endY - bitmap.height / 2, goalPaint)
+            }
+        }
+        
+        // Draw ball shadow - DISABLED FOR DEBUG
+        // shadowBitmap?.let { shadow ->
+        //     canvas.save()
+        //     val shadowPaint = Paint().apply {
+        //         isAntiAlias = true
+        //         isFilterBitmap = true
+        //         alpha = 100
+        //         xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+        //     }
+        //     canvas.drawBitmap(shadow, ballX - shadow.width / 2f, ballY - shadow.height / 2f + 3, shadowPaint)
+        //     canvas.restore()
+        // }
+        
+        // Draw ball
+        ballBitmap?.let { ball ->
+            canvas.save()
+            val ballPaint = Paint().apply {
+                isAntiAlias = true
+                isFilterBitmap = true
+                xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+            }
+            canvas.drawBitmap(ball, ballX - ball.width / 2f, ballY - ball.height / 2f, ballPaint)
+            canvas.restore()
+        }
+    }
+    
+    inner class GameThread(private val surfaceHolder: SurfaceHolder) : Thread() {
+        var running = false
+        private val targetFPS = 60
+        private val targetTime = 1000 / targetFPS
+        
+        override fun run() {
+            while (running) {
+                val startTime = System.currentTimeMillis()
+                var canvas: Canvas? = null
+                
+                try {
+                    canvas = surfaceHolder.lockCanvas()
+                    synchronized(surfaceHolder) {
+                        canvas?.let {
+                            update()
+                            drawGame(it)
+                        }
+                    }
+                } finally {
+                    canvas?.let {
+                        surfaceHolder.unlockCanvasAndPost(it)
+                    }
+                }
+                
+                val elapsed = System.currentTimeMillis() - startTime
+                val waitTime = targetTime - elapsed
+                
+                if (waitTime > 0) {
+                    try {
+                        sleep(waitTime)
+                    } catch (e: InterruptedException) {
+                        e.printStackTrace()
+                    }
+                }
+            }
+        }
+    }
+    
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        soundPool.release()
+    }
+}

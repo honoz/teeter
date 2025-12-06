@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    android:versionCode="8"
+    android:versionName="1.00"
+    package="com.htc.android.teeter">
+    <uses-sdk
+        android:minSdkVersion="8"
+        android:targetSdkVersion="8"/>
+    <uses-permission android:name="android.permission.DEVICE_POWER"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <application
+        android:label="@string/str_app_name"
+        android:icon="@drawable/icon"
+        android:description="@string/htc_company_short_name">
+        <activity
+            android:theme="@style/Theme.FullScreen"
+            android:label="@string/str_app_name"
+            android:name="CCoverActivity"
+            android:screenOrientation="portrait"
+            android:configChanges="orientation|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:theme="@android:style/Theme.NoTitleBar.Fullscreen"
+            android:label="@string/str_app_name"
+            android:name="CTeeterActivity"
+            android:launchMode="singleTask"
+            android:screenOrientation="landscape"
+            android:configChanges="orientation|keyboardHidden">
+            <intent-filter>
+                <action android:name="android.intent.action.Main"/>
+            </intent-filter>
+        </activity>
+        <meta-data
+            android:name="android.app.default_searchable"
+            android:value="*"/>
+    </application>
+</manifest>

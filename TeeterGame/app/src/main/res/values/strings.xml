@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Teeter</string>
+    <string name="str_app_name">Teeter</string>
+    <string name="htc_private_app">HTC Private App</string>
+    <string name="ap_version_id">2.0</string>
+    <string name="htc_company_short_name">HTC</string>
+    <string name="str_msg_continue">Continue?</string>
+    <string name="str_msg_quit">Quit game?</string>
+    <string name="str_btn_restart">Restart</string>
+    <string name="str_btn_yes">Yes</string>
+    <string name="str_btn_no">No</string>
+    <string name="str_btn_resume">Resume</string>
+    <string name="str_btn_quit">Quit</string>
+    <string name="str_level_caption">Level %d</string>
+    <string name="str_level_time">Time:</string>
+    <string name="str_level_attempt">Attempts:</string>
+    <string name="str_total_time">Total Time:</string>
+    <string name="str_total_attempt">Total Attempts:</string>
+    <string name="str_rank_caption">Congratulations!</string>
+    <string name="str_no_sensor">No accelerometer sensor found!</string>
+    <string name="ap_prot_err">Protection error</string>
+</resources>
