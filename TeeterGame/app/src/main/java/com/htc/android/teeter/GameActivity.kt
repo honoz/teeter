@@ -15,6 +15,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.htc.android.teeter.game.GameView
 import com.htc.android.teeter.models.GameState
+import com.htc.android.teeter.utils.GamePreferences
 import com.htc.android.teeter.utils.LevelParser
 
 class GameActivity : AppCompatActivity() {
@@ -57,8 +58,11 @@ class GameActivity : AppCompatActivity() {
             gameState.retry()
         }
         
-        // Start first level
-        loadLevel(1)
+        // Load last played level or start from level 1
+        val savedLevel = GamePreferences.getCurrentLevel(this)
+        gameState.totalTime = GamePreferences.getTotalTime(this)
+        gameState.totalAttempts = GamePreferences.getTotalAttempts(this)
+        loadLevel(savedLevel)
     }
     
     private fun loadLevel(levelNumber: Int) {
@@ -71,15 +75,84 @@ class GameActivity : AppCompatActivity() {
         }
     }
     
+    private fun showLevelTransition() {
+        runOnUiThread {
+            val dialogView = layoutInflater.inflate(R.layout.dialog_level_complete, null)
+            
+            // Set title
+            dialogView.findViewById<TextView>(R.id.levelCompletedTitle).text = 
+                "Level ${gameState.currentLevel} Completed"
+            
+            // Set level stats
+            val levelTime = gameState.getLevelTime()
+            val levelSeconds = (levelTime / 1000) % 60
+            val levelMinutes = (levelTime / 60000) % 60
+            val levelHours = (levelTime / 3600000)
+            val levelTimeStr = if (levelHours > 0) {
+                String.format("%d:%02d:%02d", levelHours, levelMinutes, levelSeconds)
+            } else {
+                String.format("%d:%02d:%02d", levelMinutes / 60, levelMinutes % 60, levelSeconds)
+            }
+            dialogView.findViewById<TextView>(R.id.levelTimeText).text = levelTimeStr
+            dialogView.findViewById<TextView>(R.id.levelAttemptsText).text = 
+                gameState.levelAttempts.toString()
+            
+            // Set total stats
+            val totalTime = gameState.totalTime
+            val totalSeconds = (totalTime / 1000) % 60
+            val totalMinutes = (totalTime / 60000) % 60
+            val totalHours = (totalTime / 3600000)
+            val totalTimeStr = if (totalHours > 0) {
+                String.format("%d:%02d:%02d", totalHours, totalMinutes, totalSeconds)
+            } else {
+                String.format("%d:%02d:%02d", totalMinutes / 60, totalMinutes % 60, totalSeconds)
+            }
+            dialogView.findViewById<TextView>(R.id.totalTimeText).text = totalTimeStr
+            dialogView.findViewById<TextView>(R.id.totalAttemptsText).text = 
+                gameState.totalAttempts.toString()
+            
+            AlertDialog.Builder(this)
+                .setView(dialogView)
+                .setPositiveButton("Continue") { dialog, _ ->
+                    dialog.dismiss()
+                    val nextLevel = gameState.currentLevel + 1
+                    GamePreferences.saveCurrentLevel(this, nextLevel)
+                    loadLevel(nextLevel)
+                }
+                .setNegativeButton("Restart from Level 1") { dialog, _ ->
+                    dialog.dismiss()
+                    GamePreferences.resetProgress(this)
+                    gameState.currentLevel = 0
+                    gameState.totalTime = 0
+                    gameState.totalAttempts = 0
+                    loadLevel(1)
+                }
+                .setCancelable(false)
+                .show()
+        }
+    }
+    
     private fun onLevelComplete() {
         gameState.completeLevel()
+        
+        // Save level score
+        GamePreferences.saveLevelScore(
+            this,
+            gameState.currentLevel,
+            gameState.getLevelTime(),
+            gameState.levelAttempts
+        )
+        
+        // Save total progress
+        GamePreferences.saveTotalTime(this, gameState.totalTime)
+        GamePreferences.saveTotalAttempts(this, gameState.totalAttempts)
         
         if (gameState.currentLevel >= LevelParser.getTotalLevels()) {
             // Game complete
             showGameCompleteDialog()
         } else {
-            // Next level
-            loadLevel(gameState.currentLevel + 1)
+            // Show transition screen
+            showLevelTransition()
         }
     }
     
@@ -97,6 +170,11 @@ class GameActivity : AppCompatActivity() {
         if (wakeLock.isHeld) {
             wakeLock.release()
         }
+        
+        // Save current progress when pausing
+        GamePreferences.saveCurrentLevel(this, gameState.currentLevel)
+        GamePreferences.saveTotalTime(this, gameState.totalTime)
+        GamePreferences.saveTotalAttempts(this, gameState.totalAttempts)
     }
     
     override fun onResume() {
@@ -116,11 +194,27 @@ class GameActivity : AppCompatActivity() {
     
     override fun onBackPressed() {
         AlertDialog.Builder(this)
+            .setTitle("Menu")
             .setMessage(R.string.str_msg_quit)
             .setPositiveButton(R.string.str_btn_yes) { _, _ ->
                 super.onBackPressed()
             }
             .setNegativeButton(R.string.str_btn_no, null)
+            .setNeutralButton("Reset Progress") { _, _ ->
+                AlertDialog.Builder(this)
+                    .setTitle("Reset Progress")
+                    .setMessage("Are you sure you want to reset all progress and start from Level 1?")
+                    .setPositiveButton("Yes") { _, _ ->
+                        GamePreferences.resetProgress(this)
+                        gameState.currentLevel = 0
+                        gameState.totalTime = 0
+                        gameState.totalAttempts = 0
+                        loadLevel(1)
+                        Toast.makeText(this, "Progress reset to Level 1", Toast.LENGTH_SHORT).show()
+                    }
+                    .setNegativeButton("Cancel", null)
+                    .show()
+            }
             .show()
     }
 }

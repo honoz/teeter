@@ -39,6 +39,23 @@ class GameView @JvmOverloads constructor(
     private var ballVelocityY = 0f
     private val ballRadius = 12f
     
+    // Animation state
+    private var isAnimating = false
+    private var animationType = AnimationType.NONE
+    private var animationProgress = 0f
+    private var animationStartX = 0f
+    private var animationStartY = 0f
+    private var animationTargetX = 0f
+    private var animationTargetY = 0f
+    private var animationStartTime = 0L
+    private val animationDuration = 500L // ms
+    private var levelCompleted = false
+    private var levelCompletedTriggered = false
+    
+    enum class AnimationType {
+        NONE, HOLE_FALL, GOAL_SUCCESS
+    }
+    
     // Sensors
     private val sensorManager: SensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer: Sensor? = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
@@ -110,6 +127,9 @@ class GameView @JvmOverloads constructor(
     
     fun setLevel(newLevel: Level) {
         level = newLevel
+        levelCompleted = false
+        levelCompletedTriggered = false
+        isAnimating = false
         resetBall()
     }
     
@@ -184,6 +204,15 @@ class GameView @JvmOverloads constructor(
     private fun update() {
         level ?: return
         
+        // Stop all updates if level is completed
+        if (levelCompleted) return
+        
+        // Handle animations
+        if (isAnimating) {
+            updateAnimation()
+            return
+        }
+        
         // Update ball position
         ballX += ballVelocityX
         ballY += ballVelocityY
@@ -192,18 +221,83 @@ class GameView @JvmOverloads constructor(
         checkWallCollisions()
         
         // Check holes
-        if (checkHoleCollisions()) {
-            vibrator.vibrate(300)
-            soundPool.play(holeSound, 1f, 1f, 1, 0, 1f)
-            resetBall()
-            onFallInHole?.invoke()
+        val holeResult = checkHoleCollisions()
+        if (holeResult.first) {
+            startAnimation(AnimationType.HOLE_FALL, holeResult.second.first, holeResult.second.second)
             return
         }
         
         // Check goal
-        if (checkGoal()) {
-            soundPool.play(levelCompleteSound, 1f, 1f, 1, 0, 1f)
-            onLevelComplete?.invoke()
+        val goalResult = checkGoal()
+        if (goalResult.first) {
+            startAnimation(AnimationType.GOAL_SUCCESS, goalResult.second.first, goalResult.second.second)
+            return
+        }
+    }
+    
+    private fun startAnimation(type: AnimationType, targetX: Float, targetY: Float) {
+        // Prevent starting a new animation if one is already running
+        if (isAnimating) return
+        
+        isAnimating = true
+        animationType = type
+        animationStartX = ballX
+        animationStartY = ballY
+        animationTargetX = targetX
+        animationTargetY = targetY
+        animationStartTime = System.currentTimeMillis()
+        animationProgress = 0f
+        
+        // Stop physics updates during animation
+        ballVelocityX = 0f
+        ballVelocityY = 0f
+        
+        // Play sound
+        when (type) {
+            AnimationType.HOLE_FALL -> {
+                vibrator.vibrate(300)
+                soundPool.play(holeSound, 1f, 1f, 1, 0, 1f)
+            }
+            AnimationType.GOAL_SUCCESS -> {
+                soundPool.play(levelCompleteSound, 1f, 1f, 1, 0, 1f)
+            }
+            else -> {}
+        }
+    }
+    
+    private fun updateAnimation() {
+        val elapsed = System.currentTimeMillis() - animationStartTime
+        animationProgress = (elapsed.toFloat() / animationDuration).coerceIn(0f, 1f)
+        
+        // Ease-in effect (accelerating toward target)
+        val easedProgress = animationProgress * animationProgress
+        
+        // Move ball toward target using saved start positions
+        ballX = animationStartX + (animationTargetX - animationStartX) * easedProgress
+        ballY = animationStartY + (animationTargetY - animationStartY) * easedProgress
+        
+        // Animation complete
+        if (animationProgress >= 1f) {
+            isAnimating = false
+            animationProgress = 0f
+            val completedType = animationType
+            animationType = AnimationType.NONE
+            
+            // Execute callbacks AFTER resetting animation state
+            when (completedType) {
+                AnimationType.HOLE_FALL -> {
+                    resetBall()
+                    post { onFallInHole?.invoke() }
+                }
+                AnimationType.GOAL_SUCCESS -> {
+                    if (!levelCompletedTriggered) {
+                        levelCompletedTriggered = true
+                        levelCompleted = true
+                        post { onLevelComplete?.invoke() }
+                    }
+                }
+                else -> {}
+            }
         }
     }
     
@@ -266,26 +360,28 @@ class GameView @JvmOverloads constructor(
         }
     }
     
-    private fun checkHoleCollisions(): Boolean {
+    private fun checkHoleCollisions(): Pair<Boolean, Pair<Float, Float>> {
         level?.holes?.forEach { hole ->
             val holeX = hole.x * scaleX
             val holeY = hole.y * scaleY
             val distance = sqrt((ballX - holeX) * (ballX - holeX) + (ballY - holeY) * (ballY - holeY))
             if (distance < ballRadius + 15f) {
-                return true
+                return Pair(true, Pair(holeX, holeY))
             }
         }
-        return false
+        return Pair(false, Pair(0f, 0f))
     }
     
-    private fun checkGoal(): Boolean {
+    private fun checkGoal(): Pair<Boolean, Pair<Float, Float>> {
         level?.let {
             val endX = it.endX * scaleX
             val endY = it.endY * scaleY
             val distance = sqrt((ballX - endX) * (ballX - endX) + (ballY - endY) * (ballY - endY))
-            return distance < ballRadius + 20f
+            if (distance < ballRadius + 20f) {
+                return Pair(true, Pair(endX, endY))
+            }
         }
-        return false
+        return Pair(false, Pair(0f, 0f))
     }
     
     private fun drawGame(canvas: Canvas) {
@@ -358,12 +454,30 @@ class GameView @JvmOverloads constructor(
         // Draw ball
         ballBitmap?.let { ball ->
             canvas.save()
+            
+            // Calculate scale for animation
+            var scale = 1f
+            var alpha = 255
+            if (isAnimating) {
+                // Shrink ball as it falls into hole or grows into goal
+                scale = 1f - (animationProgress * 0.8f) // Shrink to 20% of original size
+                alpha = (255 * (1f - animationProgress * 0.5f)).toInt() // Fade out
+            }
+            
             val ballPaint = Paint().apply {
                 isAntiAlias = true
                 isFilterBitmap = true
                 xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
+                this.alpha = alpha
             }
-            canvas.drawBitmap(ball, ballX - ball.width / 2f, ballY - ball.height / 2f, ballPaint)
+            
+            // Apply scaling
+            val scaledWidth = ball.width * scale
+            val scaledHeight = ball.height * scale
+            
+            canvas.translate(ballX, ballY)
+            canvas.scale(scale, scale)
+            canvas.drawBitmap(ball, -ball.width / 2f, -ball.height / 2f, ballPaint)
             canvas.restore()
         }
     }
