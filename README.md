@@ -6,6 +6,10 @@ A modern remake of the original HTC Teeter game, recreated from extracted resour
 
 Teeter is an accelerometer-based maze game where you must guide a ball through 32 levels while avoiding holes and reaching the goal.
 
+## Download
+
+- Download latest APK from [Releases](https://github.com/uplg/teeter/releases)
+
 ## Features
 
 - 32 original levels
@@ -21,10 +25,6 @@ Teeter is an accelerometer-based maze game where you must guide a ball through 3
 - **Minimum SDK**: Android 7.0 (API 24)
 - **Target SDK**: Android 14 (API 34)
 - **Architecture**: Custom Game Engine with SurfaceView
-
-## Download
-
-- Download latest APK from [Releases](https://github.com/uplg/teeter/releases)
 
 ## How to Build
 
