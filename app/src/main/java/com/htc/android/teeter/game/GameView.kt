@@ -37,7 +37,8 @@ class GameView @JvmOverloads constructor(
     private var ballY = 0f
     private var ballVelocityX = 0f
     private var ballVelocityY = 0f
-    private val ballRadius = 12f
+    private val baseBallRadius = 12f
+    private var ballRadius = 12f
     
     // Animation state
     private var isAnimating = false
@@ -161,6 +162,9 @@ class GameView @JvmOverloads constructor(
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {
         scaleX = width / originalWidth
         scaleY = height / originalHeight
+        // Scale ball radius proportionally to screen size
+        val avgScale = (scaleX + scaleY) / 2f
+        ballRadius = baseBallRadius * avgScale
         resetBall()
     }
     
@@ -420,7 +424,12 @@ class GameView @JvmOverloads constructor(
                     isAntiAlias = true
                     isFilterBitmap = true
                 }
-                canvas.drawBitmap(it, holeX - it.width / 2, holeY - it.height / 2, holePaint)
+                val avgScale = (scaleX + scaleY) / 2f
+                canvas.save()
+                canvas.translate(holeX, holeY)
+                canvas.scale(avgScale, avgScale)
+                canvas.drawBitmap(it, -it.width / 2f, -it.height / 2f, holePaint)
+                canvas.restore()
             }
         }
         
@@ -433,7 +442,12 @@ class GameView @JvmOverloads constructor(
                     isAntiAlias = true
                     isFilterBitmap = true
                 }
-                canvas.drawBitmap(bitmap, endX - bitmap.width / 2, endY - bitmap.height / 2, goalPaint)
+                val avgScale = (scaleX + scaleY) / 2f
+                canvas.save()
+                canvas.translate(endX, endY)
+                canvas.scale(avgScale, avgScale)
+                canvas.drawBitmap(bitmap, -bitmap.width / 2f, -bitmap.height / 2f, goalPaint)
+                canvas.restore()
             }
         }
         
@@ -458,7 +472,10 @@ class GameView @JvmOverloads constructor(
             }
             
             canvas.translate(ballX, ballY)
-            canvas.scale(scale, scale)
+            // Scale ball bitmap to match the scaled radius
+            val avgScale = (scaleX + scaleY) / 2f
+            val finalScale = scale * avgScale
+            canvas.scale(finalScale, finalScale)
             canvas.drawBitmap(ball, -ball.width / 2f, -ball.height / 2f, ballPaint)
             canvas.restore()
         }
