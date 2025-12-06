@@ -5,7 +5,6 @@ import android.content.Intent
 import android.hardware.Sensor
 import android.hardware.SensorManager
 import android.os.Bundle
-import android.os.PowerManager
 import android.view.View
 import android.view.WindowManager
 import android.widget.Button
@@ -22,20 +21,12 @@ class GameActivity : AppCompatActivity() {
     
     private lateinit var gameView: GameView
     private val gameState = GameState()
-    private lateinit var wakeLock: PowerManager.WakeLock
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
         // Keep screen on
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        
-        // Acquire wake lock
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(
-            PowerManager.SCREEN_BRIGHT_WAKE_LOCK,
-            "Teeter::GameWakeLock"
-        )
         
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) {
@@ -47,6 +38,7 @@ class GameActivity : AppCompatActivity() {
         setContentView(R.layout.activity_game)
         
         gameView = findViewById(R.id.gameView)
+        gameView.keepScreenOn = true
         
         // Setup game callbacks
         gameView.onLevelComplete = {
@@ -188,9 +180,6 @@ class GameActivity : AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         gameView.stopSensors()
-        if (wakeLock.isHeld) {
-            wakeLock.release()
-        }
         
         GamePreferences.saveCurrentLevel(this, gameState.currentLevel)
         GamePreferences.saveTotalTime(this, gameState.totalTime)
@@ -200,16 +189,10 @@ class GameActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         gameView.startSensors()
-        if (!wakeLock.isHeld) {
-            wakeLock.acquire()
-        }
     }
     
     override fun onDestroy() {
         super.onDestroy()
-        if (wakeLock.isHeld) {
-            wakeLock.release()
-        }
     }
     
     override fun onBackPressed() {
@@ -217,7 +200,6 @@ class GameActivity : AppCompatActivity() {
             .setTitle("Menu")
             .setMessage(R.string.str_msg_quit)
             .setPositiveButton(R.string.str_btn_yes) { _, _ ->
-                // super.onBackPressed()
                 onBackPressedDispatcher.onBackPressed()
             }
             .setNegativeButton(R.string.str_btn_no, null)

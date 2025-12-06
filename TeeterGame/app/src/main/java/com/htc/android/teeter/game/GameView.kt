@@ -107,7 +107,6 @@ class GameView @JvmOverloads constructor(
         try {
             val options = BitmapFactory.Options().apply {
                 inScaled = false
-                inDither = false
                 inPreferredConfig = Bitmap.Config.ARGB_8888
                 inPremultiplied = true
             }
