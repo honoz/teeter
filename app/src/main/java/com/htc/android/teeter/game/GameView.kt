@@ -411,17 +411,42 @@ class GameView @JvmOverloads constructor(
             canvas.drawBitmap(scaledBitmap, 0f, 0f, mazePaint)
         }
         
-        // Draw walls
+        // Draw walls with 3D beveled effect
         val wallPaint = Paint().apply {
-            color = Color.rgb(100, 100, 100)
+            color = Color.rgb(80, 80, 80)
             style = Paint.Style.FILL
+            isAntiAlias = true
+            setShadowLayer(6f, 3f, 3f, Color.argb(120, 0, 0, 0))
         }
+        val highlightPaint = Paint().apply {
+            color = Color.argb(100, 255, 255, 255)
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            isAntiAlias = true
+        }
+        val shadowPaint = Paint().apply {
+            color = Color.argb(100, 0, 0, 0)
+            style = Paint.Style.STROKE
+            strokeWidth = 2f
+            isAntiAlias = true
+        }
+        
         level?.walls?.forEach { wall ->
             val left = wall.left * scaleX
             val top = wall.top * scaleY
             val right = wall.right * scaleX
             val bottom = wall.bottom * scaleY
+            
+            // Draw main wall surface
             canvas.drawRect(left, top, right, bottom, wallPaint)
+            
+            // Draw highlight on top and left edges
+            canvas.drawLine(left, top, right, top, highlightPaint)
+            canvas.drawLine(left, top, left, bottom, highlightPaint)
+            
+            // Draw shadow on bottom and right edges
+            canvas.drawLine(left, bottom, right, bottom, shadowPaint)
+            canvas.drawLine(right, top, right, bottom, shadowPaint)
         }
         
         // Draw holes
