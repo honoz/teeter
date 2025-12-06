@@ -111,24 +111,32 @@ class GameActivity : AppCompatActivity() {
             dialogView.findViewById<TextView>(R.id.totalAttemptsText).text = 
                 gameState.totalAttempts.toString()
             
-            AlertDialog.Builder(this)
+            val dialog = AlertDialog.Builder(this)
                 .setView(dialogView)
-                .setPositiveButton("Continue") { dialog, _ ->
+                .setCancelable(false)
+                .create()
+            
+            dialog.show()
+            
+            // Make dialog fullscreen - must be called AFTER show()
+            dialog.window?.apply {
+                setLayout(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT
+                )
+                setBackgroundDrawableResource(android.R.color.black)
+                decorView.setPadding(0, 0, 0, 0)
+            }
+            
+            // Auto-continue après 3 secondes
+            dialogView.postDelayed({
+                if (dialog.isShowing) {
                     dialog.dismiss()
                     val nextLevel = gameState.currentLevel + 1
                     GamePreferences.saveCurrentLevel(this, nextLevel)
                     loadLevel(nextLevel)
                 }
-                .setNegativeButton("Restart from Level 1") { dialog, _ ->
-                    dialog.dismiss()
-                    GamePreferences.resetProgress(this)
-                    gameState.currentLevel = 0
-                    gameState.totalTime = 0
-                    gameState.totalAttempts = 0
-                    loadLevel(1)
-                }
-                .setCancelable(false)
-                .show()
+            }, 3000)
         }
     }
     
