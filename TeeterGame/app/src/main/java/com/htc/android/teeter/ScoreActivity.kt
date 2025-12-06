@@ -1,5 +1,6 @@
 package com.htc.android.teeter
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Button
 import android.widget.TextView
@@ -17,7 +18,6 @@ class ScoreActivity : AppCompatActivity() {
         val totalTime = intent.getLongExtra("totalTime", 0)
         val totalAttempts = intent.getIntExtra("totalAttempts", 0)
         
-        // Get rank
         val rank = GamePreferences.getRank(this)
         
         findViewById<TextView>(R.id.rank_caption).text = "Congratulations!\nRank: $rank"
@@ -25,9 +25,11 @@ class ScoreActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.total_attempt_score).text = totalAttempts.toString()
         
         findViewById<Button>(R.id.btn_restart).setOnClickListener {
-            // Reset progress and restart
             GamePreferences.resetProgress(this)
-            finish()
+            val intent = Intent(this, GameActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finishAffinity()
         }
         
         findViewById<Button>(R.id.btn_quit).setOnClickListener {
@@ -56,7 +58,10 @@ class ScoreActivity : AppCompatActivity() {
                     .setPositiveButton("Yes") { _, _ ->
                         GamePreferences.resetProgress(this)
                         Toast.makeText(this, "Progress reset to Level 1", Toast.LENGTH_SHORT).show()
-                        finish()
+                        val intent = Intent(this, GameActivity::class.java)
+                        intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+                        startActivity(intent)
+                        finishAffinity()
                     }
                     .setNegativeButton("Cancel", null)
                     .show()

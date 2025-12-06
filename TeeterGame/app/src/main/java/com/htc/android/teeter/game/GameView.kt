@@ -389,7 +389,7 @@ class GameView @JvmOverloads constructor(
         
         level ?: return
         
-        // Draw maze background - temporarily disabled to debug
+        // Draw maze background
         mazeBitmap?.let {
             val scaledBitmap = Bitmap.createScaledBitmap(it, width, height, true)
             val mazePaint = Paint().apply {
@@ -438,19 +438,6 @@ class GameView @JvmOverloads constructor(
             }
         }
         
-        // Draw ball shadow - DISABLED FOR DEBUG
-        // shadowBitmap?.let { shadow ->
-        //     canvas.save()
-        //     val shadowPaint = Paint().apply {
-        //         isAntiAlias = true
-        //         isFilterBitmap = true
-        //         alpha = 100
-        //         xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
-        //     }
-        //     canvas.drawBitmap(shadow, ballX - shadow.width / 2f, ballY - shadow.height / 2f + 3, shadowPaint)
-        //     canvas.restore()
-        // }
-        
         // Draw ball
         ballBitmap?.let { ball ->
             canvas.save()
@@ -470,10 +457,6 @@ class GameView @JvmOverloads constructor(
                 xfermode = PorterDuffXfermode(PorterDuff.Mode.SRC_OVER)
                 this.alpha = alpha
             }
-            
-            // Apply scaling
-            val scaledWidth = ball.width * scale
-            val scaledHeight = ball.height * scale
             
             canvas.translate(ballX, ballY)
             canvas.scale(scale, scale)

@@ -37,7 +37,6 @@ class GameActivity : AppCompatActivity() {
             "Teeter::GameWakeLock"
         )
         
-        // Check for accelerometer
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
         if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) == null) {
             Toast.makeText(this, R.string.str_no_sensor, Toast.LENGTH_LONG).show()
@@ -57,6 +56,21 @@ class GameActivity : AppCompatActivity() {
         gameView.onFallInHole = {
             gameState.retry()
         }
+        
+        // DEBUG: Long press on GameView to skip to last level
+        // gameView.setOnLongClickListener {
+        //     AlertDialog.Builder(this)
+        //         .setTitle("Debug")
+        //         .setMessage("Skip to last level (32)?")
+        //         .setPositiveButton("Yes") { _, _ ->
+        //             GamePreferences.saveCurrentLevel(this, 32)
+        //             loadLevel(32)
+        //             Toast.makeText(this, "Jumped to Level 32", Toast.LENGTH_SHORT).show()
+        //         }
+        //         .setNegativeButton("Cancel", null)
+        //         .show()
+        //     true
+        // }
         
         // Load last played level or start from level 1
         val savedLevel = GamePreferences.getCurrentLevel(this)
@@ -79,11 +93,9 @@ class GameActivity : AppCompatActivity() {
         runOnUiThread {
             val dialogView = layoutInflater.inflate(R.layout.dialog_level_complete, null)
             
-            // Set title
             dialogView.findViewById<TextView>(R.id.levelCompletedTitle).text = 
                 "Level ${gameState.currentLevel} Completed"
             
-            // Set level stats
             val levelTime = gameState.getLevelTime()
             val levelSeconds = (levelTime / 1000) % 60
             val levelMinutes = (levelTime / 60000) % 60
@@ -118,7 +130,6 @@ class GameActivity : AppCompatActivity() {
             
             dialog.show()
             
-            // Make dialog fullscreen - must be called AFTER show()
             dialog.window?.apply {
                 setLayout(
                     WindowManager.LayoutParams.MATCH_PARENT,
@@ -128,7 +139,6 @@ class GameActivity : AppCompatActivity() {
                 decorView.setPadding(0, 0, 0, 0)
             }
             
-            // Auto-continue après 3 secondes
             dialogView.postDelayed({
                 if (dialog.isShowing) {
                     dialog.dismiss()
@@ -143,7 +153,6 @@ class GameActivity : AppCompatActivity() {
     private fun onLevelComplete() {
         gameState.completeLevel()
         
-        // Save level score
         GamePreferences.saveLevelScore(
             this,
             gameState.currentLevel,
@@ -151,15 +160,12 @@ class GameActivity : AppCompatActivity() {
             gameState.levelAttempts
         )
         
-        // Save total progress
         GamePreferences.saveTotalTime(this, gameState.totalTime)
         GamePreferences.saveTotalAttempts(this, gameState.totalAttempts)
         
         if (gameState.currentLevel >= LevelParser.getTotalLevels()) {
-            // Game complete
             showGameCompleteDialog()
         } else {
-            // Show transition screen
             showLevelTransition()
         }
     }
@@ -186,7 +192,6 @@ class GameActivity : AppCompatActivity() {
             wakeLock.release()
         }
         
-        // Save current progress when pausing
         GamePreferences.saveCurrentLevel(this, gameState.currentLevel)
         GamePreferences.saveTotalTime(this, gameState.totalTime)
         GamePreferences.saveTotalAttempts(this, gameState.totalAttempts)
@@ -212,7 +217,8 @@ class GameActivity : AppCompatActivity() {
             .setTitle("Menu")
             .setMessage(R.string.str_msg_quit)
             .setPositiveButton(R.string.str_btn_yes) { _, _ ->
-                super.onBackPressed()
+                // super.onBackPressed()
+                onBackPressedDispatcher.onBackPressed()
             }
             .setNegativeButton(R.string.str_btn_no, null)
             .setNeutralButton("Reset Progress") { _, _ ->
