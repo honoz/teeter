@@ -10,6 +10,10 @@ Teeter is an accelerometer-based maze game where you must guide a ball through 3
 
 - Download latest APK from [Releases](https://github.com/uplg/teeter/releases)
 
+## Screenshot
+
+![Screenshot](./teeter.png)
+
 ## Features
 
 - 32 original levels
