@@ -22,6 +22,10 @@ Teeter is an accelerometer-based maze game where you must guide a ball through 3
 - **Target SDK**: Android 14 (API 34)
 - **Architecture**: Custom Game Engine with SurfaceView
 
+## Download
+
+- Download latest APK from [Releases](https://github.com/uplg/teeter/releases)
+
 ## How to Build
 
 ### Prerequisites
@@ -30,6 +34,8 @@ Teeter is an accelerometer-based maze game where you must guide a ball through 3
 - Android SDK with API 34
 
 ### Steps
+
+0. Clone repository
 
 1. Open the project in Android Studio:
    ```
@@ -47,7 +53,6 @@ Teeter is an accelerometer-based maze game where you must guide a ball through 3
    ```
    Or via command line:
    ```bash
-   cd TeeterGame
    ./gradlew assembleDebug
    # APK will be in app/build/outputs/apk/debug/
    ```
