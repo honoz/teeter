@@ -77,6 +77,7 @@ class GameView @JvmOverloads constructor(
     private var endBitmap: Bitmap? = null
     private var wallBitmap: Bitmap? = null
     private var mazeBitmap: Bitmap? = null
+    private var scaledMazeBitmap: Bitmap? = null // Cached scaled version
     private var shadowBitmap: Bitmap? = null
     private val holeAnimFrames = mutableListOf<Bitmap>()
     private val endAnimFrames = mutableListOf<Bitmap>()
@@ -195,6 +196,10 @@ class GameView @JvmOverloads constructor(
         // Scale ball radius proportionally to screen size
         val avgScale = (scaleX + scaleY) / 2f
         ballRadius = baseBallRadius * avgScale
+        // Pre-scale maze bitmap once to avoid doing it every frame
+        mazeBitmap?.let {
+            scaledMazeBitmap = it.scale(width, height)
+        }
         resetBall()
     }
     
@@ -436,13 +441,12 @@ class GameView @JvmOverloads constructor(
         level ?: return
         
         // Draw maze background
-        mazeBitmap?.let {
-            val scaledBitmap = it.scale(width, height)
+        scaledMazeBitmap?.let {
             val mazePaint = Paint().apply {
                 isAntiAlias = true
                 isFilterBitmap = true
             }
-            canvas.drawBitmap(scaledBitmap, 0f, 0f, mazePaint)
+            canvas.drawBitmap(it, 0f, 0f, mazePaint)
         }
         
         // Draw walls with 3D beveled effect
