@@ -480,7 +480,7 @@ class GameView @JvmOverloads constructor(
     }
     
     private fun checkWallCollisions() {
-        level?.walls?.forEachIndexed { index, wall ->
+        level?.walls?.forEach { wall ->
             val left = wall.left * scaleX
             val top = wall.top * scaleY
             val right = wall.right * scaleX
