@@ -42,6 +42,14 @@ private const val GRAVITY_ZONE_MULTIPLIER = 3.89f  // Gravity affects ball withi
 private const val GRAVITY_BASE_STRENGTH = 0.4f  // Base gravitational pull strength
 private const val MAX_TILT_MAGNITUDE = 10.0f  // Maximum device tilt in m/s² for normalization
 
+// Haptic feedback constants for wall collisions
+private const val MIN_IMPACT_VELOCITY = 2.0f  // Minimum velocity to trigger haptic feedback
+private const val MAX_IMPACT_VELOCITY = 20.0f  // Maximum velocity for haptic scaling
+private const val MIN_VIBRATION_MS = 10L  // Minimum vibration duration (light tap)
+private const val MAX_VIBRATION_MS = 100L  // Maximum vibration duration (hard impact)
+private const val MIN_VIBRATION_AMPLITUDE = 20  // Minimum vibration intensity (0-255)
+private const val MAX_VIBRATION_AMPLITUDE = 200  // Maximum vibration intensity
+
 class GameView @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null
@@ -74,6 +82,10 @@ class GameView @JvmOverloads constructor(
     private val animationDuration = 500L // ms
     private var levelCompleted = false
     private var levelCompletedTriggered = false
+    
+    // Haptic feedback state
+    private var lastHapticTime = 0L
+    private val hapticCooldown = 150L // Cooldown between wall impacts (ms)
     
     enum class AnimationType {
         NONE, HOLE_FALL, GOAL_SUCCESS
@@ -437,8 +449,38 @@ class GameView @JvmOverloads constructor(
         }
     }
     
+    /**
+     * Trigger haptic feedback based on impact velocity.
+     * Implements Touch Diamond-style vibration that varies by impact force.
+     * Uses cooldown to prevent multiple vibrations from composite walls.
+     */
+    private fun triggerImpactHaptic(impactVelocity: Float) {
+        // Only vibrate if impact is strong enough
+        if (impactVelocity < MIN_IMPACT_VELOCITY) return
+        
+        // Check cooldown to prevent continuous vibration from composite walls
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastHapticTime < hapticCooldown) return
+        lastHapticTime = currentTime
+        
+        // Calculate impact strength (0.0 to 1.0)
+        val normalizedImpact = ((impactVelocity - MIN_IMPACT_VELOCITY) / 
+            (MAX_IMPACT_VELOCITY - MIN_IMPACT_VELOCITY)).coerceIn(0f, 1f)
+        
+        // Scale vibration duration and intensity based on impact
+        val duration = (MIN_VIBRATION_MS + (MAX_VIBRATION_MS - MIN_VIBRATION_MS) * normalizedImpact).toLong()
+        val amplitude = (MIN_VIBRATION_AMPLITUDE + (MAX_VIBRATION_AMPLITUDE - MIN_VIBRATION_AMPLITUDE) * normalizedImpact).toInt()
+        
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            vibrator.vibrate(VibrationEffect.createOneShot(duration, amplitude))
+        } else {
+            @Suppress("DEPRECATION")
+            vibrator.vibrate(duration)
+        }
+    }
+    
     private fun checkWallCollisions() {
-        level?.walls?.forEach { wall ->
+        level?.walls?.forEachIndexed { index, wall ->
             val left = wall.left * scaleX
             val top = wall.top * scaleY
             val right = wall.right * scaleX
@@ -468,6 +510,12 @@ class GameView @JvmOverloads constructor(
                     ballX += pushX
                     ballY += pushY
                     
+                    // Calculate impact velocity (perpendicular component to wall)
+                    // This is the actual collision force, not rolling velocity
+                    val normalX = distanceX / distance
+                    val normalY = distanceY / distance
+                    val impactVelocity = abs(ballVelocityX * normalX + ballVelocityY * normalY)
+                    
                     // Apply velocity dampening based on collision angle
                     // If hitting mostly horizontally, reduce horizontal velocity
                     if (abs(distanceX) > abs(distanceY)) {
@@ -475,6 +523,9 @@ class GameView @JvmOverloads constructor(
                     } else {
                         ballVelocityY = -ballVelocityY * 0.5f
                     }
+                    
+                    // Trigger haptic feedback (cooldown handles composite walls)
+                    triggerImpactHaptic(impactVelocity)
                 } else {
                     // Ball center is exactly on closest point (edge case)
                     // Determine which edge and push out
@@ -487,42 +538,58 @@ class GameView @JvmOverloads constructor(
                     
                     when (minDist) {
                         distToLeft -> {
+                            val impactVelocity = abs(ballVelocityX)
                             ballX = left - ballRadius
                             ballVelocityX = -ballVelocityX * 0.5f
+                            triggerImpactHaptic(impactVelocity)
                         }
                         distToRight -> {
+                            val impactVelocity = abs(ballVelocityX)
                             ballX = right + ballRadius
                             ballVelocityX = -ballVelocityX * 0.5f
+                            triggerImpactHaptic(impactVelocity)
                         }
                         distToTop -> {
+                            val impactVelocity = abs(ballVelocityY)
                             ballY = top - ballRadius
                             ballVelocityY = -ballVelocityY * 0.5f
+                            triggerImpactHaptic(impactVelocity)
                         }
                         distToBottom -> {
+                            val impactVelocity = abs(ballVelocityY)
                             ballY = bottom + ballRadius
                             ballVelocityY = -ballVelocityY * 0.5f
+                            triggerImpactHaptic(impactVelocity)
                         }
                     }
                 }
             }
         }
         
-        // Screen boundaries
+        // Screen boundaries with haptic feedback
         if (ballX - ballRadius < 0) {
+            val impactVelocity = abs(ballVelocityX)
             ballX = ballRadius
             ballVelocityX = -ballVelocityX * 0.5f
+            triggerImpactHaptic(impactVelocity)
         }
         if (ballX + ballRadius > width) {
+            val impactVelocity = abs(ballVelocityX)
             ballX = width - ballRadius
             ballVelocityX = -ballVelocityX * 0.5f
+            triggerImpactHaptic(impactVelocity)
         }
         if (ballY - ballRadius < 0) {
+            val impactVelocity = abs(ballVelocityY)
             ballY = ballRadius
             ballVelocityY = -ballVelocityY * 0.5f
+            triggerImpactHaptic(impactVelocity)
         }
         if (ballY + ballRadius > height) {
+            val impactVelocity = abs(ballVelocityY)
             ballY = height - ballRadius
             ballVelocityY = -ballVelocityY * 0.5f
+            triggerImpactHaptic(impactVelocity)
         }
     }
     
