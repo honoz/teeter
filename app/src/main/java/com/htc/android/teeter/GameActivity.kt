@@ -30,7 +30,7 @@ class GameActivity : AppCompatActivity() {
         // Enable edge-to-edge immersive mode (hide system bars)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         
-        // Keep screen on
+        // Keep screen on1
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         
         val sensorManager = getSystemService(SENSOR_SERVICE) as SensorManager
