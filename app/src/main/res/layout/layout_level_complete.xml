@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 改用 LinearLayout 替代 TableLayout，更易控制垂直占比 -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/score_layout"
     android:layout_width="match_parent"
@@ -9,7 +8,6 @@
     android:padding="30dp"
     android:weightSum="20">
 
-    <!-- 等级标题 -->
     <TextView
         android:id="@+id/level_caption"
         android:layout_width="match_parent"
@@ -20,13 +18,11 @@
         android:textSize="34sp"
         android:textStyle="bold" />
 
-    <!-- 空行占位 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="2" />
 
-    <!-- 关卡用时 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -57,7 +53,6 @@
             android:textStyle="bold"/>
     </LinearLayout>
 
-    <!-- 关卡尝试次数 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -88,13 +83,11 @@
             android:textStyle="bold"/>
     </LinearLayout>
 
-    <!-- 空行占位 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="2" />
 
-    <!-- 总用时 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -125,7 +118,6 @@
             android:textStyle="bold"/>
     </LinearLayout>
 
-    <!-- 总尝试次数 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -156,7 +148,6 @@
             android:textStyle="bold"/>
     </LinearLayout>
 
-    <!-- 剩余占位（补全权重） -->
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"

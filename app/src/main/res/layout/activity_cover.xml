@@ -6,7 +6,6 @@
     android:layout_height="match_parent"
     android:background="@drawable/splash_bg">
 
-    <!-- 闪屏主前景图：iv(ImageView)_splash(用途)_foreground(前景) -->
     <ImageView
         android:id="@+id/iv_splash_foreground"
         android:layout_width="wrap_content"
@@ -17,7 +16,6 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
 
-    <!-- 闪屏小球图标：iv(ImageView)_splash(用途)_ball(小球) -->
     <ImageView
         android:id="@+id/iv_splash_ball"
         android:layout_width="wrap_content"

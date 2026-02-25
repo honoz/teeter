@@ -1,30 +1,23 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- 基础主题：基于 Material Design 3，支持日夜模式，无ActionBar -->
     <style name="Theme" parent="Theme.AppCompat.NoActionBar">
-        <!-- 基础配置 -->
         <item name="android:windowNoTitle">true</item>
         <item name="windowActionBar">false</item>
         <item name="windowNoTitle">true</item>
     </style>
 
-    <!-- 全屏主题：继承自现代化的基础主题 -->
     <style name="Theme.FullScreen" parent="@style/Theme">
-        <!-- 现代全屏配置（替代老旧的 windowFullscreen） -->
         <item name="android:windowBackground">@color/black</item>
-        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item> <!-- 适配刘海屏 -->
-        <item name="android:windowTranslucentStatus">true</item> <!-- 透明状态栏 -->
-        <item name="android:windowTranslucentNavigation">true</item> <!-- 透明导航栏 -->
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowTranslucentStatus">true</item>
+        <item name="android:windowTranslucentNavigation">true</item>
 
-        <!-- 沉浸式模式（API 19+） -->
         <item name="android:windowDrawsSystemBarBackgrounds">true</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
 
-        <!-- 新增：关键配置 - 隐藏系统UI（API 16+） -->
         <item name="android:windowFullscreen">true</item>
         <item name="android:windowContentOverlay">@null</item>
 
-        <!-- 针对Android 11+的优化 -->
         <item name="android:enforceNavigationBarContrast" tools:targetApi="30">false</item>
         <item name="android:enforceStatusBarContrast" tools:targetApi="30">false</item>
     </style>

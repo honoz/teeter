@@ -9,7 +9,6 @@
     android:paddingRight="100dp"
     android:paddingBottom="20dp">
 
-    <!-- 标题行 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
@@ -25,13 +24,11 @@
             android:textStyle="bold" />
     </FrameLayout>
 
-    <!-- 第一个空白占位 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="0.3" />
 
-    <!-- 分数显示行1 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -47,7 +44,6 @@
             android:textSize="24sp" />
     </FrameLayout>
 
-    <!-- 分数显示行2 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -63,7 +59,6 @@
             android:textSize="24sp" />
     </FrameLayout>
 
-    <!-- 分数显示行3 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -79,7 +74,6 @@
             android:textSize="24sp" />
     </FrameLayout>
 
-    <!-- 分数显示行4 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -95,7 +89,6 @@
             android:textSize="24sp" />
     </FrameLayout>
 
-    <!-- 分数显示行5 -->
     <FrameLayout
         android:layout_width="match_parent"
         android:layout_height="0dp"
@@ -111,13 +104,11 @@
             android:textSize="24sp" />
     </FrameLayout>
 
-    <!-- 第二个空白占位 -->
     <View
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="0.3" />
 
-    <!-- 按钮区域 -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
