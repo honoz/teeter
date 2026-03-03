@@ -313,8 +313,7 @@ class CTeeterActivity : AppCompatActivity(), CoroutineScope by MainScope() {
                 Log.d(TAG, "initGameView: Ball fell in hole, level attempts increased")
             }
 
-            // Trigger quit dialog when tapping anywhere on the screen
-            setTouchListenerForQuitDialog()
+            setupUnifiedTouchListener()
         }
 
         // Load saved game progress asynchronously
@@ -1050,6 +1049,23 @@ class CTeeterActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     /**
+     * Shows a global toast notification with message.
+     * Cancels any existing toast to prevent multiple notifications stacking.
+     *
+     * @param message Text message to display
+     * @param duration Toast duration (default: Toast.LENGTH_SHORT)
+     */
+    private fun showGlobalToast(message: String, duration: Int = Toast.LENGTH_SHORT) {
+        // Cancel existing toast if present
+        globalToast?.cancel()
+        // Create and show new toast
+        globalToast = Toast.makeText(this, message, duration).apply {
+            mainHandler.post { show() }
+        }
+        Log.d(TAG, "showGlobalToast: Toast shown - '$message'")
+    }
+
+    /**
      * Pauses game play and updates pause state flag.
      * Stops game physics and sensor processing in GameView.
      */
@@ -1113,31 +1129,89 @@ class CTeeterActivity : AppCompatActivity(), CoroutineScope by MainScope() {
     }
 
     /**
-     * Sets a global touch listener for GameView that triggers the quit confirmation dialog
-     * when tapping anywhere on the screen.
+     * Unified touch listener for GameView that handles both debug and normal modes:
+     * - Debug Mode:
+     *   - Left 20%: Toggle hole display (with toast feedback)
+     *   - Right 20%: Toggle end zone display (with toast feedback)
+     *   - Middle: Show quit dialog
+     * - Normal Mode:
+     *   - Any tap: Show quit dialog
+     *
+     * Only processes ACTION_DOWN events to avoid duplicate triggers.
      */
     @SuppressLint("ClickableViewAccessibility")
-    private fun GameView.setTouchListenerForQuitDialog() {
+    private fun GameView.setupUnifiedTouchListener() {
         setOnTouchListener { _, event ->
-            // Only handle down events (avoid duplicate triggers)
-            if (event.action == android.view.MotionEvent.ACTION_DOWN) {
-                // Do not handle touch events on non-game pages
-                if (isNonGamePage) return@setOnTouchListener false
+            // Only handle touch down events (ignore move/up/cancel)
+            if (event.action != android.view.MotionEvent.ACTION_DOWN) {
+                return@setOnTouchListener false
+            }
 
-                // Do not handle if dialog is already showing
-                if (isDialogShowing) return@setOnTouchListener false
+            // Ignore touch if on non-game page or dialog is already showing
+            if (isNonGamePage || isDialogShowing) {
+                return@setOnTouchListener false
+            }
 
-                // Pause the game and show quit confirmation dialog
+            // Calculate relative touch position (0.0f - 1.0f) based on GameView dimensions
+            val screenWidth = width.toFloat()
+            val screenHeight = height.toFloat()
+            val relativeX = event.x / screenWidth
+            val relativeY = event.y / screenHeight
+
+            // Only process valid touch positions (within GameView bounds)
+            if (relativeY !in 0.0f..1.0f) {
+                return@setOnTouchListener false
+            }
+
+            // Branch logic by debug mode status
+            if (isDebugMode) {
+                // DEBUG MODE: Zone-based controls
+                when {
+                    // Left 20%: Toggle hole display
+                    relativeX < 0.2f -> {
+                        toggleHoleDisplay()
+                        showGlobalToast(if (isHoleDisplayed) "Hole ON" else "Hole OFF")
+                        Log.d(
+                            TAG,
+                            "setupUnifiedTouchListener: Debug - Toggled hole display to ${if (isHoleDisplayed) "ON" else "OFF"}"
+                        )
+                        true
+                    }
+                    // Right 20%: Toggle end zone display
+                    relativeX > 0.8f -> {
+                        toggleEndDisplay()
+                        showGlobalToast(if (isEndDisplayed) "End ON" else "End OFF")
+                        Log.d(
+                            TAG,
+                            "setupUnifiedTouchListener: Debug - Toggled end display to ${if (isEndDisplayed) "ON" else "OFF"}"
+                        )
+                        true
+                    }
+                    // Middle zone: Show quit dialog
+                    else -> {
+                        pauseGame()
+                        showGameDialog(DIALOG_QUIT)
+                        Log.d(
+                            TAG,
+                            "setupUnifiedTouchListener: Debug - Middle touch, showing quit dialog"
+                        )
+                        true
+                    }
+                }
+            } else {
+                // NORMAL MODE: Any tap → Show quit dialog
                 pauseGame()
                 showGameDialog(DIALOG_QUIT)
-                Log.d(TAG, "setTouchListenerForQuitDialog: Screen touched, show quit dialog")
+                Log.d(
+                    TAG,
+                    "setupUnifiedTouchListener: Normal - Screen tapped, showing quit dialog"
+                )
                 true
-            } else {
-                false
             }
         }
-        Log.d(TAG, "setTouchListenerForQuitDialog: Global touch listener set for quit dialog")
+        Log.d(TAG, "setupUnifiedTouchListener: Unified touch listener initialized (debug mode: $isDebugMode)")
     }
+
 
     /**
      * Extension function to format milliseconds into human-readable time string.
